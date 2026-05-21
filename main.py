@@ -1,51 +1,43 @@
-import turtle
+import math
 import random
 import time
-import math
+import turtle
 
-#turtle.screensize(2000, 700)
+
+#canvas prep
 turtle.setworldcoordinates(0, 0, 1000, 700)
 turtle.speed(0)
 turtle.ht()
-#turtle.listen()
+
 
 class Rocket:
 
-    def __init__(self, data, data_keys, size=25, ):
+    def __init__(self, data, data_keys, size=25, mass=1, bounce=0.5):
         self.size = size
         self.data = data
         self.data_keys = data_keys
+        self.mass = mass
+        self.bounce = bounce
 
-    def spawn(self, x=500, y=None):
+    def spawn(self, x=500, y=None, orient=0):
+        turtle.setheading(orient)
         if y == None:
             y = 700-self.size
         turtle.teleport(x, y)
+        print(f'{x=}, {y=}, {orient=}')
         for i in range(4):
             turtle.forward(self.size)
             turtle.left(90)
 
         return (x, y)
 
-    def v_fall(self, x, y):
-        t1 = time.monotonic() #initial setup
-        yf = y
-
-        angl = turtle.heading() #turtle info and base positioning
-        hx = x + self.size*math.cos(angl)
-        hy = y + self.size*math.sin(angl)
-
-        print(f'{hx=}, {hy=}')
-        
+    def check_down(self, x, y, hx, hy, angl):
         line = binarySearch(self.data_keys, x) #vertice to the left of left corner
         start = line
-##        x1 = self.data[line][0]
-##        y1 = self.data[line][1]
 
         for i in range(line, len(self.data_keys)): #vertice to the right of right corner
             if self.data_keys[i] >= hx:
                 finish = i
-##                x2 = self.data[i][0]
-##                y2 = self.data[i][1]
                 break
 
 # square can hit only (vertice on vertice or edge) or (edge on vertice) 
@@ -69,38 +61,120 @@ class Rocket:
         #we foresee which exact impact will happen by choosing the least of
         #distances between verices and corresponding impact point
         #in order to next section of code work
-        
+
+
+        #NOTE: tan function involved - consider cases for angl = 90+180n, n ~ Z
+        #NOTE: probably last and this section can be merged but i dont feel like
+        #doing that, as well as concerned if getting data wouldnt be harder
         comparison = [y-impact_points[0][1]]
         for i in range(start+1, finish):
             comparison += [y+(impact_points[i-start][0]-x)*math.tan(angl)-impact_points[i-start][1]]
         comparison += [hy-impact_points[-1][1]]
+        if comparison[0] == comparison[1]:
+            stabilize = True
+        else:
+            stabilize = False
         impact_distance = min(comparison)
-        where = impact_points[comparison.index(impact_distance)]
-        correction = (where[0]-x)*math.tan(angl)
-        print(f'{impact_points=} \n {impact_distance=} \n {comparison=} \n {where=} \n {correction=}')
-        
-        #impact = ((y2-y1)*(x-x1)/(x2-x1) + y1) if x != x1 else y1
+        where = comparison.index(impact_distance)
+        col_pos = impact_points[where]
+        correction = (col_pos[0]-x)*math.tan(angl)
+        print(f'\n CHECK {impact_points=} \n {impact_distance=} \n {comparison=} \n')
+
+        return col_pos, correction, impact_distance, stabilize
+
+    def hit_slope(self, xpos, ypos, vel, v_rot, xcol, angl):
+        slide = binarySearch(self.data_keys, xcol)
+        print(f'PRE {xpos=}, {ypos=}, {vel=}, {xcol=},  {angl=} \n')
+        inertia = self.mass*self.size**2/6
+        slope = ((self.data[slide][1]-self.data[slide+1][1])/(self.data[slide][0]-self.data[slide+1][0]), -1) #as vector -> radius vector (hence - one) -> as normal vector (perpendicular (a, b) -> (-b, a))
+        if slope[0] > 1 or slope[0] < -1:
+            slope = (1, -1/slope[0])
+        if slope[1] < 0:
+            slope = (-slope[0], -slope[1])
+        mass_c = ((xcol-xpos)*math.cos(angl)-math.cos(angl+math.pi/4)*self.size*2**(1/2)/2, (xcol-xpos)*math.sin(angl)-math.sin(angl+math.pi/4)*self.size*2**(1/2)/2)
+        v_rel = (vel[0]+v_rot*mass_c[0])*slope[0]+(vel[1]+v_rot*mass_c[1])*slope[1]
+        impulse = (-(1 + self.bounce)*v_rel) / (1/self.mass + (mass_c[0]*slope[0]+mass_c[1]*slope[1])**2 / inertia)
+        new_v = (vel[0] + (impulse*slope[0])/self.mass, vel[1] + (impulse*slope[1])/self.mass)
+        v_rot_new = v_rot + impulse*(mass_c[0]*slope[0]+mass_c[1]*slope[1])/inertia
+        print(f'POST {inertia=}, {slope=}, {mass_c=}, {v_rel=}, {impulse=}, {new_v=} \n')
+        return new_v, v_rot_new
+
+    def hit_vertice(self):
+        pass
+
+    def stabilize(self):
+        pass
+
+    def sliding(self):
+        pass
+
+    def v_fall(self, x, y):
+        t1 = time.monotonic() #initial setup
+        ypos = y
+        xpos = x
+
+        angl_d = turtle.heading() #turtle info and base positioning
+        angl_r = angl_d/180*math.pi
+         
+        vel = (0, 0)
+        v_rot = 0
+
+        counter = 0
+
         while True: #add collision - based on surface log, full stop on
             #corresponding line segment DONE (for hitpoint)
-            #do it now for the whole base
-            turtle.color("white")
-            self.spawn(x, yf)
+            #do it now for the whole base DONE
+
+            hx = xpos + self.size*math.cos(angl_r)
+            hy = ypos + self.size*math.sin(angl_r)
+            
+            
+
+            #turtle.color("white")
+            #self.spawn(xpos, ypos)
             t2 = time.monotonic()
-            yf = y-(100*(t2-t1)**2/2)
-            if yf+correction < where[1]:
-                turtle.color("black")
-                self.spawn(x, where[1])
-                print(where[1])
+            dt = t2 - t1
+            ypos = y+vel[1]*dt-(100*dt**2/2) #in rockets spawn point
+            xpos = x+vel[0]*dt
+
+            col_pos, correction, err, st = self.check_down(xpos, ypos, hx, hy, angl_r)
+            xcol, ycol = col_pos
+            #angl_r = angl_r + v_rot*dt
+            #angl_d = angl_r*180/math.pi
+            if ypos+correction < ycol:
+                ypos = ycol-correction+2
+                turtle.color("red")
+                self.spawn(xpos, ypos, angl_d)
+                print(ycol, "hit! \n")
+                print(f'{vel=} {v_rot=} {angl_r=} {angl_d=}')
+                vel = (vel[0], vel[1]-(100*dt/2))
+
+                counter += 1
+                vel, v_rot = self.hit_slope(xpos, ypos, vel, v_rot, xcol, angl_r)
+                x, y = xpos, ypos
+                t1 = time.monotonic()
+                if vel[0] == 0 or counter > 25 or st:
+                    if vel[0] == 0:
+                        print("FALLEN FLAT")
+                    if st:
+                        print("STUCK")
+                    if counter > 25:
+                        print("TOO MUCH")
+                    break
+                continue
+            if xpos < 0 or xpos > 1000:
                 break
             turtle.color("black")
-            self.spawn(x, yf)
-            print(yf)         
+            print(f'{xpos=}, {ypos=}, {vel=}')
+            self.spawn(xpos, ypos, angl_d)
+            print(ypos)         
+#2+"3"
 
 class Moon:
 
     def __init__(self, surf_dev=50, surf_det=50):
-        self.surf_dev = surf_dev
-        self.surf_det = surf_det
+        self.surf_dev = surf_dev #surface deviation - half of an amplitude of moon landscape
+        self.surf_det = surf_det # surface detail - length limit of generated line segments
 
     def generate(self):
 
@@ -111,19 +185,18 @@ class Moon:
         #is always generated after first one
         #print(base1, base2)
 
-        surf_dev = 50 #surface deviation - half of an amplitude of moon landscape
-        surf_det = 50 # surface detail - length limit of generated line segments
+        
 
-        turtle.teleport(0, surf_dev)
+        turtle.teleport(0, self.surf_dev)
 
         xpos = 0
-        ypos = surf_dev
+        ypos = self.surf_dev
 
         surf_data = [(xpos, ypos)]
 
-        while surf_det < (1000 - xpos):
+        while self.surf_det < (1000 - xpos):
             
-            xpos = random.uniform(xpos, xpos+surf_det)
+            xpos = random.uniform(xpos, xpos+self.surf_det)
             
             if xpos > base1 or xpos > base2:
                 
@@ -146,12 +219,12 @@ class Moon:
                     xpos = turtle.xcor()
                     continue
                 
-            ypos = random.uniform(0, surf_dev*2)
+            ypos = random.uniform(0, self.surf_dev*2)
             turtle.setpos(xpos, ypos)
             surf_data += [(xpos, ypos)]
             #print(f'{xpos=}, {ypos=}')
             
-        ypos = random.uniform(0, surf_dev*2)
+        ypos = random.uniform(0, self.surf_dev*2)
         turtle.setpos(1000, ypos)
         surf_data += [(1000, ypos)]
 
@@ -193,7 +266,11 @@ def test(n):
 #construction site
 #dont look
 
-test(5)
+#test(5)
+
+#tasks
+#break code in more functions, as well as moving some to other files
+#code rotation on impact 
 
 
 
