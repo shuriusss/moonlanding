@@ -32,10 +32,51 @@ class Rocket:
         return (x, y)
 
     def check_down(self, x, y, hx, hy, angl):
+        third = False
+        if angl == math.pi/2:
+            x = x - self.size
+            hy = hy - self.size
+        elif angl == math.pi*3/2:
+            hx = x + self.size
+            y = y - self.size
+        elif angl == math.pi:
+            x, hx = hx, x
+            y, hy = hy-self.size, y-self.size
+        elif angl < math.pi/2:
+            third = True
+            xmid, ymid = x, y
+            x = x+math.cos(angl+math.pi/2)*self.size
+            y = y+math.sin(angl+math.pi/2)*self.size
+        elif angl > math.pi/2 and angl < math.pi:
+            third = True
+            xmid, ymid = hx, hy
+            hx, hy = x, y
+            x = x+math.cos(angl+math.pi/4)*self.size*2**(1/2)
+            y = y+math.sin(angl+math.pi/4)*self.size*2**(1/2)
+        elif angl > math.pi and angl < math.pi*3/2:
+            third = True
+            xmid = x+math.cos(angl+math.pi/4)*self.size*2**(1/2)
+            ymid = y+math.sin(angl+math.pi/4)*self.size*2**(1/2)
+            x, y = hx, hy
+            hx = hx+math.cos(angl+math.pi*3/4)*self.size*2**(1/2)
+            hy = hy+math.sin(angl+math.pi*3/4)*self.size*2**(1/2)
+        elif angl > math.pi*3/2:
+            third = True
+            xmid, ymid = hx, hy
+            hx = x+math.cos(angl+math.pi/4)*self.size*2**(1/2)
+            hy = y+math.sin(angl+math.pi/4)*self.size*2**(1/2)
+
+        print(x, y, '\n', xmid if third else None, ymid if third else None, '\n', hx, hy)
+            
+            
         line = binarySearch(self.data_keys, x) #vertice to the left of left corner
         start = line
 
+        yet = True
         for i in range(line, len(self.data_keys)): #vertice to the right of right corner
+            if yet and self.data_keys[i] >= hx and self.data_keys[i-1] <= hx:
+                middle = i
+                yet = False
             if self.data_keys[i] >= hx:
                 finish = i
                 break
@@ -50,6 +91,13 @@ class Rocket:
         #left vertice
         for i in range(start+1, finish):
             impact_points += [self.data[i]]
+        if third:
+            x1 = self.data[start][0]
+            y1 = self.data[start][1]
+            x2 = self.data[start+1][0]
+            y2 = self.data[start+1][1]
+            impact_points += [(x, ((y2-y1)*(x-x1)/(x2-x1) + y1) if x != x1 else y1)]
+
         #side on vertice
         x1 = self.data[finish-1][0]
         y1 = self.data[finish-1][1]
@@ -69,18 +117,19 @@ class Rocket:
         comparison = [y-impact_points[0][1]]
         for i in range(start+1, finish):
             comparison += [y+(impact_points[i-start][0]-x)*math.tan(angl)-impact_points[i-start][1]]
+        if third:
+            comparison += [ymid-impact_points[-2][1]]
         comparison += [hy-impact_points[-1][1]]
-        if comparison[0] == comparison[1]:
+        if comparison[0] == comparison[-1]:
             stabilize = True
         else:
             stabilize = False
         impact_distance = min(comparison)
         where = comparison.index(impact_distance)
         col_pos = impact_points[where]
-        correction = (col_pos[0]-x)*math.tan(angl)
         print(f'\n CHECK {impact_points=} \n {impact_distance=} \n {comparison=} \n')
 
-        return col_pos, correction, impact_distance, stabilize
+        return col_pos, impact_distance, stabilize
 
     def hit_slope(self, xpos, ypos, vel, v_rot, xcol, angl):
         slide = binarySearch(self.data_keys, xcol)
@@ -130,27 +179,29 @@ class Rocket:
             
             
 
-            #turtle.color("white")
-            #self.spawn(xpos, ypos)
+            turtle.color("white")
+            self.spawn(xpos, ypos)
             t2 = time.monotonic()
             dt = t2 - t1
             ypos = y+vel[1]*dt-(100*dt**2/2) #in rockets spawn point
-            xpos = x+vel[0]*dt
+            xpos = x+vel[0]*dt-5*dt**2/2*(abs(vel[0])/vel[0]) if vel[0] else x
 
-            col_pos, correction, err, st = self.check_down(xpos, ypos, hx, hy, angl_r)
+            col_pos, imp_dis, st = self.check_down(xpos, ypos, hx, hy, angl_r)
             xcol, ycol = col_pos
-            #angl_r = angl_r + v_rot*dt
-            #angl_d = angl_r*180/math.pi
-            if ypos+correction < ycol:
-                ypos = ycol-correction+2
+            angl_r = (angl_r + v_rot*dt) % (math.pi*2)
+            angl_d = angl_r*180/math.pi
+            if imp_dis <= 0:
+                ypos -= imp_dis
                 turtle.color("red")
                 self.spawn(xpos, ypos, angl_d)
                 print(ycol, "hit! \n")
                 print(f'{vel=} {v_rot=} {angl_r=} {angl_d=}')
+                time.sleep(20)
                 vel = (vel[0], vel[1]-(100*dt/2))
 
                 counter += 1
                 vel, v_rot = self.hit_slope(xpos, ypos, vel, v_rot, xcol, angl_r)
+                time.sleep(20)
                 x, y = xpos, ypos
                 t1 = time.monotonic()
                 if vel[0] == 0 or counter > 25 or st:
