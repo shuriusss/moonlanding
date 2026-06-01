@@ -19,65 +19,80 @@ class Rocket:
         self.mass = mass
         self.bounce = bounce
 
-    def spawn(self, x=500, y=None, orient=0):
+    def move(self):
+        turtle.listen()
+        turtle.onkey
+
+    def spawn(self, x=None, y=None, orient=0):
         turtle.setheading(orient)
         if y == None:
-            y = 700-self.size
+            y = 687.5
+        if x == None:
+            x =  500     
         turtle.teleport(x, y)
+        turtle.penup()
+        turtle.right(45)
+        turtle.forward(self.size*2**(1/2))
+        turtle.left(135)
+        turtle.pendown()
+        print(f'{x=}, {y=}, {orient=}')
+        for i in range(3):
+            turtle.forward(self.size)
+            turtle.left(90)
+        turtle.forward(self.size/3)
+        turtle.color("green")
+        turtle.forward(self.size/3)
+        turtle.color("black")
+        turtle.forward(self.size/3)
+
+        return (x, y)
+
+    def despawn(self, x=None, y=None, orient=0):
+        turtle.color("white")
+        turtle.setheading(orient)
+        if y == None:
+            y = 700-self.size/2
+        if x == None:
+            x = 500-self.size/2
+        turtle.teleport(x, y)
+        turtle.penup()
+        turtle.right(45)
+        turtle.forward(self.size*2**(1/2))
+        turtle.left(135)
+        turtle.pendown()
         print(f'{x=}, {y=}, {orient=}')
         for i in range(4):
             turtle.forward(self.size)
             turtle.left(90)
+        turtle.color("black")
 
         return (x, y)
 
-    def check_down(self, x, y, hx, hy, angl):
-        third = False
-        if angl == math.pi/2:
-            x = x - self.size
-            hy = hy - self.size
-        elif angl == math.pi*3/2:
-            hx = x + self.size
-            y = y - self.size
-        elif angl == math.pi:
-            x, hx = hx, x
-            y, hy = hy-self.size, y-self.size
-        elif angl < math.pi/2:
-            third = True
-            xmid, ymid = x, y
-            x = x+math.cos(angl+math.pi/2)*self.size
-            y = y+math.sin(angl+math.pi/2)*self.size
-        elif angl > math.pi/2 and angl < math.pi:
-            third = True
-            xmid, ymid = hx, hy
-            hx, hy = x, y
-            x = x+math.cos(angl+math.pi/4)*self.size*2**(1/2)
-            y = y+math.sin(angl+math.pi/4)*self.size*2**(1/2)
-        elif angl > math.pi and angl < math.pi*3/2:
-            third = True
-            xmid = x+math.cos(angl+math.pi/4)*self.size*2**(1/2)
-            ymid = y+math.sin(angl+math.pi/4)*self.size*2**(1/2)
-            x, y = hx, hy
-            hx = hx+math.cos(angl+math.pi*3/4)*self.size*2**(1/2)
-            hy = hy+math.sin(angl+math.pi*3/4)*self.size*2**(1/2)
-        elif angl > math.pi*3/2:
-            third = True
-            xmid, ymid = hx, hy
-            hx = x+math.cos(angl+math.pi/4)*self.size*2**(1/2)
-            hy = y+math.sin(angl+math.pi/4)*self.size*2**(1/2)
+    def check_down(self, x, y, angl):
+        r_vec = (math.cos(angl)*self.size/2**(1/2), math.sin(angl)*self.size/2**(1/2))
+        corners = []
+        for i in range(4):
+            corners += [(x+r_vec[0], y+r_vec[1])]
+            r_vec = (-r_vec[1], r_vec[0])
+        corners.sort()
+        if corners[1][1] > corners[2][1]:
+            corners = [corners[0]]+corners[2:]
+        else:
+            corners = corners[:2]+[corners[-1]]
+            
 
-        print(x, y, '\n', xmid if third else None, ymid if third else None, '\n', hx, hy)
+        print(f'{corners=}')
             
             
-        line = binarySearch(self.data_keys, x) #vertice to the left of left corner
+        line = binarySearch(self.data_keys, corners[0][0]) #vertice to the left of left corner
         start = line
 
         yet = True
         for i in range(line, len(self.data_keys)): #vertice to the right of right corner
-            if yet and self.data_keys[i] >= hx and self.data_keys[i-1] <= hx:
+            if yet and self.data_keys[i] >= corners[1][0] and self.data_keys[i-1] <= corners[1][0]:
                 middle = i
                 yet = False
-            if self.data_keys[i] >= hx:
+            if self.data_keys[i] >= corners[2][0]:
                 finish = i
                 break
 
@@ -87,23 +102,22 @@ class Rocket:
         y1 = self.data[start][1]
         x2 = self.data[start+1][0]
         y2 = self.data[start+1][1]
-        impact_points = [(x, ((y2-y1)*(x-x1)/(x2-x1) + y1) if x != x1 else y1)]
+        impact_points = [(corners[0][0], ((y2-y1)*(x-x1)/(x2-x1) + y1) if corners[0][0] != x1 else y1)]
         #left vertice
         for i in range(start+1, finish):
             impact_points += [self.data[i]]
-        if third:
-            x1 = self.data[start][0]
-            y1 = self.data[start][1]
-            x2 = self.data[start+1][0]
-            y2 = self.data[start+1][1]
-            impact_points += [(x, ((y2-y1)*(x-x1)/(x2-x1) + y1) if x != x1 else y1)]
+        x1 = self.data[start][0]
+        y1 = self.data[start][1]
+        x2 = self.data[start+1][0]
+        y2 = self.data[start+1][1]
+        impact_points += [(corners[1][0], ((y2-y1)*(corners[1][0]-x1)/(x2-x1) + y1) if corners[1][0] != x1 else y1)]
 
         #side on vertice
         x1 = self.data[finish-1][0]
         y1 = self.data[finish-1][1]
         x2 = self.data[finish][0]
         y2 = self.data[finish][1]
-        impact_points += [(hx, ((y2-y1)*(hx-x1)/(x2-x1) + y1) if hx != x1 else y1)]
+        impact_points += [(corners[2][0], ((y2-y1)*(corners[2][0]-x1)/(x2-x1) + y1) if corners[2][0] != x1 else y1)]
         #right vertice
 
         #we foresee which exact impact will happen by choosing the least of
@@ -114,12 +128,19 @@ class Rocket:
         #NOTE: tan function involved - consider cases for angl = 90+180n, n ~ Z
         #NOTE: probably last and this section can be merged but i dont feel like
         #doing that, as well as concerned if getting data wouldnt be harder
-        comparison = [y-impact_points[0][1]]
+        comparison = [corners[0][1]-impact_points[0][1]]
         for i in range(start+1, finish):
-            comparison += [y+(impact_points[i-start][0]-x)*math.tan(angl)-impact_points[i-start][1]]
-        if third:
-            comparison += [ymid-impact_points[-2][1]]
-        comparison += [hy-impact_points[-1][1]]
+            if impact_points[i-start][0] < corners[1][0]:
+                x1, y1 = corners[0]
+                x2, y2 = corners[1]
+            else:
+                x1, y1 = corners[1]
+                x2, y2 = corners[2]
+            comparison += [(y2-y1)*(impact_points[i-start][0]-x1)/(x2-x1) + y1 if x1 != x2 else min(y1, y2)]
+
+            
+        comparison += [corners[1][1]-impact_points[-2][1]]
+        comparison += [corners[2][1]-impact_points[-1][1]]
         if comparison[0] == comparison[-1]:
             stabilize = True
         else:
@@ -131,21 +152,24 @@ class Rocket:
 
         return col_pos, impact_distance, stabilize
 
-    def hit_slope(self, xpos, ypos, vel, v_rot, xcol, angl):
-        slide = binarySearch(self.data_keys, xcol)
-        print(f'PRE {xpos=}, {ypos=}, {vel=}, {xcol=},  {angl=} \n')
+    def hit_slope(self, xpos, ypos, vel, v_rot, col_pos, angl):
+        slide = binarySearch(self.data_keys, col_pos[0])
+        print(f'PRE {xpos=}, {ypos=}, {vel=}, {v_rot=} {col_pos=},  {angl=} \n')
         inertia = self.mass*self.size**2/6
-        slope = ((self.data[slide][1]-self.data[slide+1][1])/(self.data[slide][0]-self.data[slide+1][0]), -1) #as vector -> radius vector (hence - one) -> as normal vector (perpendicular (a, b) -> (-b, a))
-        if slope[0] > 1 or slope[0] < -1:
-            slope = (1, -1/slope[0])
-        if slope[1] < 0:
-            slope = (-slope[0], -slope[1])
-        mass_c = ((xcol-xpos)*math.cos(angl)-math.cos(angl+math.pi/4)*self.size*2**(1/2)/2, (xcol-xpos)*math.sin(angl)-math.sin(angl+math.pi/4)*self.size*2**(1/2)/2)
+        if self.data_keys[slide] == col_pos[0]:
+            slope = (0, 1)
+        else:
+            slope = ((self.data[slide][1]-self.data[slide+1][1])/(self.data[slide][0]-self.data[slide+1][0]), -1) #as vector -> radius vector (hence - one) -> as normal vector (perpendicular (a, b) -> (-b, a))
+            if slope[0] > 1 or slope[0] < -1:
+                slope = (1, -1/slope[0])
+            if slope[1] < 0:
+                slope = (-slope[0], -slope[1])
+        mass_c = (col_pos[0]-xpos, col_pos[1]-ypos)
         v_rel = (vel[0]+v_rot*mass_c[0])*slope[0]+(vel[1]+v_rot*mass_c[1])*slope[1]
         impulse = (-(1 + self.bounce)*v_rel) / (1/self.mass + (mass_c[0]*slope[0]+mass_c[1]*slope[1])**2 / inertia)
         new_v = (vel[0] + (impulse*slope[0])/self.mass, vel[1] + (impulse*slope[1])/self.mass)
         v_rot_new = v_rot + impulse*(mass_c[0]*slope[0]+mass_c[1]*slope[1])/inertia
-        print(f'POST {inertia=}, {slope=}, {mass_c=}, {v_rel=}, {impulse=}, {new_v=} \n')
+        print(f'POST {inertia=}, {slope=}, {mass_c=}, {v_rel=}, {impulse=}, {new_v=}, {v_rot_new=} \n')
         return new_v, v_rot_new
 
     def hit_vertice(self):
@@ -172,44 +196,38 @@ class Rocket:
 
         while True: #add collision - based on surface log, full stop on
             #corresponding line segment DONE (for hitpoint)
-            #do it now for the whole base DONE
+            #do it now for the whole base DONE            
 
-            hx = xpos + self.size*math.cos(angl_r)
-            hy = ypos + self.size*math.sin(angl_r)
-            
-            
-
-            turtle.color("white")
-            self.spawn(xpos, ypos)
+            #self.despawn(xpos, ypos, angl_r)
             t2 = time.monotonic()
             dt = t2 - t1
             ypos = y+vel[1]*dt-(100*dt**2/2) #in rockets spawn point
             xpos = x+vel[0]*dt-5*dt**2/2*(abs(vel[0])/vel[0]) if vel[0] else x
 
-            col_pos, imp_dis, st = self.check_down(xpos, ypos, hx, hy, angl_r)
-            xcol, ycol = col_pos
+            col_pos, imp_dis, st = self.check_down(xpos, ypos, angl_r)
             angl_r = (angl_r + v_rot*dt) % (math.pi*2)
             angl_d = angl_r*180/math.pi
             if imp_dis <= 0:
                 ypos -= imp_dis
                 turtle.color("red")
                 self.spawn(xpos, ypos, angl_d)
-                print(ycol, "hit! \n")
+                turtle.color("black")
+                print(col_pos, "hit! \n")
                 print(f'{vel=} {v_rot=} {angl_r=} {angl_d=}')
-                time.sleep(20)
+                #time.sleep(20)
                 vel = (vel[0], vel[1]-(100*dt/2))
 
                 counter += 1
-                vel, v_rot = self.hit_slope(xpos, ypos, vel, v_rot, xcol, angl_r)
-                time.sleep(20)
+                vel, v_rot = self.hit_slope(xpos, ypos, vel, v_rot, col_pos, angl_r)
+                #time.sleep(20)
                 x, y = xpos, ypos
                 t1 = time.monotonic()
-                if vel[0] == 0 or counter > 25 or st:
+                if vel[0] == 0 or counter > 5 or st:
                     if vel[0] == 0:
                         print("FALLEN FLAT")
                     if st:
                         print("STUCK")
-                    if counter > 25:
+                    if counter > 2:
                         print("TOO MUCH")
                     break
                 continue
@@ -323,6 +341,19 @@ def test(n):
 #break code in more functions, as well as moving some to other files
 #code rotation on impact 
 
+#rewrite whole code that acting point of square (spawnpoint) is in center
+    #reasons:
+        #xpos and ypos dont change with rotation despite being in corner
+        
+        #hit check is already independant from spawnpoint
+        
+        #2nd rotation problem - square itself rendered wrong in rotation
+        #(rotates around left down corner instead of center)
+        
+        # in down check can be just 3 lowest corners by ys instead of angle
+        # dependent recalculating location of corners
+
+        #DONE but not debugged, investigate why square isnt floating upwards anumore
 
 
 
