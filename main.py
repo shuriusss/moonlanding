@@ -19,10 +19,14 @@ class Rocket:
         self.mass = mass
         self.bounce = bounce
 
-    def move(self):
-        turtle.listen()
-        turtle.onkey
-
+    def move(self, t2, angle_r):
+        t3 = time.monotonic()
+        return 10*(t3-t2)**2*math.sin(angle_r), 10*(t3-t2)**2*math.cos(angle_r)
+        
+        
+    def rotate(self, direction):
+        return direction        
+        
     def spawn(self, x=None, y=None, orient=0):
         turtle.setheading(orient)
         if y == None:
@@ -193,7 +197,9 @@ class Rocket:
         v_rot = 0
 
         counter = 0
-
+        
+        acc = (-100, 0)
+        
         while True: #add collision - based on surface log, full stop on
             #corresponding line segment DONE (for hitpoint)
             #do it now for the whole base DONE            
@@ -201,12 +207,26 @@ class Rocket:
             #self.despawn(xpos, ypos, angl_r)
             t2 = time.monotonic()
             dt = t2 - t1
-            ypos = y+vel[1]*dt-(100*dt**2/2) #in rockets spawn point
-            xpos = x+vel[0]*dt-5*dt**2/2*(abs(vel[0])/vel[0]) if vel[0] else x
+            
 
-            col_pos, imp_dis, st = self.check_down(xpos, ypos, angl_r)
+            screen = turtle.Screen()
+
+                # Controls
+            screen.listen()
+            angl_d += 0 if screen.onkey(lambda: 1, "Right") == None else 1
+            angl_d += 0 if screen.onkey(lambda: 1, "Left") == None else -1
+
             angl_r = (angl_r + v_rot*dt) % (math.pi*2)
             angl_d = angl_r*180/math.pi
+            
+            acc = acc if screen.onkeyrelease(lambda: 1, "Up") == None else apollo.move(t2, angl_r) 
+            screen.onkey(screen.bye, "Escape")
+            
+            ypos = y+vel[1]*dt+(acc[0]*dt**2/2) #in rockets spawn point
+            xpos = x+vel[0]*dt-5*dt**2/2*(abs(vel[0])/vel[0])+acc[1]*dt**2/2 if vel[0] else x
+
+            col_pos, imp_dis, st = self.check_down(xpos, ypos, angl_r)
+            
             if imp_dis <= 0:
                 ypos -= imp_dis
                 turtle.color("red")
@@ -216,6 +236,7 @@ class Rocket:
                 print(f'{vel=} {v_rot=} {angl_r=} {angl_d=}')
                 #time.sleep(20)
                 vel = (vel[0], vel[1]-(100*dt/2))
+                acc = (0, 0)
 
                 counter += 1
                 vel, v_rot = self.hit_slope(xpos, ypos, vel, v_rot, col_pos, angl_r)
@@ -322,6 +343,10 @@ g1log = g1.generate()
 g1logmiles = [i[0] for i in g1log]
 apollo = Rocket(g1log, g1logmiles)
 x, y = apollo.spawn()
+
+
+
+
 apollo.v_fall(x, y)
 
 def test(n):
